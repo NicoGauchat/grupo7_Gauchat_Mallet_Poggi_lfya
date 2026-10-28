@@ -100,6 +100,11 @@ un analizador semántico para resolver estos casos; registrarlos en el informe.
   en `body` y otra en `orelse`. Una lista plana de tipos sin esos límites no alcanza.
 - Mantener identificadores normalizados, `LIT`, operadores y estructura. No usar
   texto regenerado ni `ast.dump()` como sustituto del recorrido definido.
+- Formato implementado el 28/10/2026: `NODO:tipo`, `CAMPO:nombre`,
+  `VALOR:representacion` (con `repr()`), `AUSENTE`, `INICIO_LISTA`, `FIN_LISTA`
+  y `FIN_NODO`. Los cierres explícitos conservan los límites de la estructura;
+  `repr()` distingue valores escalares de distinto tipo. Es una función recursiva
+  con un auxiliar local, sin clases nuevas ni cambios en la normalización.
 
 ### Similitud: `similitud.py`
 
@@ -118,6 +123,36 @@ un analizador semántico para resolver estos casos; registrarlos en el informe.
   una segunda métrica automáticamente.
 - Jaccard con conjuntos pierde frecuencias y parte del orden global. Un score
   de 1 no demuestra igualdad del AST ni equivalencia semántica.
+
+#### Calibración de la etapa 4 (28/10/2026)
+
+Los pares y sus expectativas se fijaron en `ejemplos/funciones.py` antes de
+calcular los scores. Los archivos se leen con el extractor, sin importarlos ni
+ejecutarlos. Se usan las funciones de normalización y serialización vigentes.
+
+| Caso | Par | Intersección / unión | Score con n = 3 |
+| --- | --- | --- | --- |
+| Positivo aritmético | `sumar` / `total` | 80 / 80 | 1.00000000 |
+| Positivo con control de flujo | `acumular` / `contar` | 109 / 109 | 1.00000000 |
+| Negativo: aritmética / recorrido con condicional | `sumar` / `contar` | 68 / 121 | 0.56198347 |
+| Negativo: retorno / bucle con acumulación | `identidad` / `acumular` | 48 / 111 | 0.43243243 |
+| Exploratorio: instrucciones independientes reordenadas | `operaciones` / `operaciones_reordenadas` | 92 / 92 | 1.00000000 |
+
+Se mantienen n = 3 y umbral = 0.70: los trigramas conservan vecindad local de
+tokens con una implementación simple y separan estos positivos y negativos.
+El umbral queda por encima del mayor negativo (0.56198347) y por debajo de los
+positivos. Esta calibración pequeña no demuestra precisión general ni que sea
+el mejor n posible; no se ensayaron otros valores al pasar los casos acordados.
+Los marcadores estructurales compartidos también contribuyen al score.
+
+El reordenamiento exploratorio conserva el conjunto de trigramas y puntúa 1,
+aunque las listas de tokens son distintas. Esto muestra la pérdida de orden
+global y frecuencias de Jaccard con conjuntos; no promete detectar cualquier
+reordenamiento ni equivalencia de comportamiento.
+
+`similitud.py` contiene solo las constantes y dos funciones convencionales.
+`crear_ngramas()` rechaza n menor que 1 con `ValueError`; no se agregaron
+configuraciones de consola ni dependencias.
 
 ### Búsqueda y consola: `buscar_similares.py`
 
@@ -162,7 +197,7 @@ un analizador semántico para resolver estos casos; registrarlos en el informe.
 
 ## 4. Etapas y condiciones de cierre
 
-La implementación pendiente empieza en la etapa 3. El esfuerzo relativo es una
+La implementación pendiente empieza en la etapa 5. El esfuerzo relativo es una
 orientación; la normalización concentra la mayor incertidumbre. No es una agenda
 ni un compromiso de horas. Al cerrar cada etapa se actualiza esta lista y se
 explica el funcionamiento al equipo antes de avanzar.
@@ -187,12 +222,12 @@ explica el funcionamiento al equipo antes de avanzar.
   Cierre: los renombrados soportados producen AST equivalentes y las diferencias
   de correspondencia y operadores permanecen; límites explícitos y pruebas aprobadas.
 
-- [ ] **Etapa 3. Serialización** — esfuerzo medio.
+- [x] **Etapa 3. Serialización** — esfuerzo medio.
   Agregar el recorrido a `normalizador.py` y ampliar sus pruebas.
   Cierre: tokens deterministas en pre-order, sin nombres propios ni posiciones;
   diferenciar bloques `body`/`orelse`, valores ausentes y listas vacías.
 
-- [ ] **Etapa 4. Métrica y umbral** — esfuerzo medio.
+- [x] **Etapa 4. Métrica y umbral** — esfuerzo medio.
   Crear `similitud.py`, `tests/test_similitud.py` y los casos de `ejemplos/`.
   Probar fórmula, identidad, simetría, rango y secuencias cortas/vacías. Medir los
   dos positivos, dos negativos y reordenamiento exploratorio. Registrar scores y
@@ -251,7 +286,28 @@ docstrings, comentarios de tipo y otros identificadores acordados. La limitació
 del mapa compartido ante sombreado está comprobada y documentada. No se cambió
 el extractor ni se implementaron etapas posteriores.
 
-La próxima implementación corresponde exclusivamente a la etapa 3 y requiere
+Etapa 3 implementada el 28/10/2026. Se agregó `serializar_ast()` y cinco pruebas
+de pre-order, límites de bloques, ausentes/listas vacías, determinismo,
+inmutabilidad, exclusión de posiciones/comentarios y valores escalares. También
+se ampliaron las pruebas existentes de clones y diferencias de operadores y
+correspondencias para comparar tokens.
+
+Se ejecutó `python -B -m unittest discover -s tests -v` con Python 3.12.14,
+disponible en esta sesión: 32 pruebas, 31 aprobadas y 1 error. Todas las pruebas
+nuevas y ampliadas pasaron. El error existente corresponde a sintaxis de
+parámetros de tipo con defaults, que requiere Python 3.13. Queda pendiente
+repetir la suite completa con Python 3.13; no se cambió esa prueba ni la versión
+de referencia para ocultar la diferencia de entorno.
+
+Etapa 4 implementada el 28/10/2026: `similitud.py`, `tests/test_similitud.py` y
+`ejemplos/funciones.py`. Se aprobaron las 11 pruebas nuevas de n-gramas,
+Jaccard y calibración con `python -B -m unittest discover -s tests -p
+test_similitud.py -v`. La suite completa ejecutada con Python 3.12.14 tiene
+43 pruebas: 42 aprobadas y el mismo error existente de sintaxis que requiere
+Python 3.13. Sigue pendiente repetir la suite con la versión de referencia.
+Los scores medidos y la justificación de n y umbral están en la sección 2.
+
+La próxima implementación corresponde exclusivamente a la etapa 5 y requiere
 indicación del equipo. No se realizaron commits ni publicaciones en estas etapas.
 
 Todo cambio posterior de una regla debe indicar motivo, prueba que lo sustenta

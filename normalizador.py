@@ -1,4 +1,4 @@
-"""Normalización léxica de AST de funciones para comparar su estructura."""
+"""Normalización y serialización de AST de funciones para comparar su estructura."""
 
 import ast
 import copy
@@ -12,6 +12,37 @@ def normalizar_funcion(nodo):
     """
     copia = copy.deepcopy(nodo)
     return _Normalizador(copia).visit(copia)
+
+
+def serializar_ast(nodo_normalizado):
+    """Devuelve tokens en pre-order sin modificar el árbol normalizado.
+
+    Los marcadores conservan los campos y los límites de nodos y listas.
+    Las posiciones y los comentarios de tipo no participan en la comparación.
+    """
+    tokens = []
+
+    def recorrer(elemento):
+        if isinstance(elemento, ast.AST):
+            tokens.append(f"NODO:{type(elemento).__name__}")
+            for campo, valor in ast.iter_fields(elemento):
+                if campo == "type_comment":
+                    continue
+                tokens.append(f"CAMPO:{campo}")
+                recorrer(valor)
+            tokens.append("FIN_NODO")
+        elif isinstance(elemento, list):
+            tokens.append("INICIO_LISTA")
+            for valor in elemento:
+                recorrer(valor)
+            tokens.append("FIN_LISTA")
+        elif elemento is None:
+            tokens.append("AUSENTE")
+        else:
+            tokens.append(f"VALOR:{elemento!r}")
+
+    recorrer(nodo_normalizado)
+    return tokens
 
 
 class _Normalizador(ast.NodeTransformer):

@@ -1,7 +1,7 @@
 import ast
 import unittest
 
-from normalizador import normalizar_funcion
+from normalizador import normalizar_funcion, serializar_ast
 
 
 class TestNormalizador(unittest.TestCase):
@@ -34,6 +34,7 @@ class TestNormalizador(unittest.TestCase):
                 a = self.normalizar_codigo(primero)
                 b = self.normalizar_codigo(segundo)
                 self.assertEqual(ast.dump(a), ast.dump(b))
+                self.assertEqual(serializar_ast(a), serializar_ast(b))
                 self.assertEqual(a.name, "FUNCION")
 
     def test_conserva_correspondencias_y_operadores(self):
@@ -44,8 +45,74 @@ class TestNormalizador(unittest.TestCase):
                     f"def f(a, b):\n    return {expresion}\n"
                 )
                 self.assertNotEqual(ast.dump(base), ast.dump(diferente))
+                self.assertNotEqual(serializar_ast(base), serializar_ast(diferente))
         self.assertIsInstance(base.body[0].value.op, ast.Add)
         self.assertIsInstance(base.body[0].value.left.ctx, ast.Load)
+
+    def test_serializacion_preorder(self):
+        nodo = self.normalizar_codigo("def f(a):\n    return a\n")
+
+        tokens = serializar_ast(nodo.body[0])
+
+        self.assertEqual(tokens, [
+            "NODO:Return", "CAMPO:value", "NODO:Name",
+            "CAMPO:id", "VALOR:'VAR1'", "CAMPO:ctx", "NODO:Load",
+            "FIN_NODO", "FIN_NODO", "FIN_NODO",
+        ])
+
+    def test_serializacion_distingue_bloques(self):
+        juntos = self.normalizar_codigo(
+            "def f(a):\n"
+            "    if a:\n"
+            "        x = 1\n"
+            "        y = 2\n"
+        )
+        separados = self.normalizar_codigo(
+            "def f(a):\n"
+            "    if a:\n"
+            "        x = 1\n"
+            "    else:\n"
+            "        y = 2\n"
+        )
+
+        self.assertNotEqual(serializar_ast(juntos), serializar_ast(separados))
+
+    def test_serializacion_ausentes_y_listas_vacias(self):
+        nodo = self.normalizar_codigo("def f():\n    return\n")
+        lista = self.normalizar_codigo("def f():\n    return []\n")
+
+        self.assertEqual(serializar_ast(nodo.body[0]), [
+            "NODO:Return", "CAMPO:value", "AUSENTE", "FIN_NODO",
+        ])
+        self.assertEqual(serializar_ast(lista.body[0].value), [
+            "NODO:List", "CAMPO:elts", "INICIO_LISTA", "FIN_LISTA",
+            "CAMPO:ctx", "NODO:Load", "FIN_NODO", "FIN_NODO",
+        ])
+
+    def test_serializacion_determinista_sin_posiciones_ni_comentarios(self):
+        nodo = self.normalizar_codigo("def f(a):\n    return a + 10\n")
+        antes = ast.dump(nodo, include_attributes=True)
+        tokens = serializar_ast(nodo)
+
+        self.assertEqual(serializar_ast(nodo), tokens)
+        self.assertEqual(ast.dump(nodo, include_attributes=True), antes)
+        self.assertIn("VALOR:'FUNCION'", tokens)
+        self.assertIn("VALOR:'LIT'", tokens)
+        self.assertNotIn("CAMPO:lineno", tokens)
+        self.assertNotIn("CAMPO:col_offset", tokens)
+        self.assertNotIn("CAMPO:type_comment", tokens)
+
+        desplazado = self.normalizar_codigo("\n\ndef otra(x):\n    return x + 99\n")
+        desplazado.type_comment = "Comentario ignorado"
+        self.assertEqual(serializar_ast(desplazado), tokens)
+
+    def test_serializacion_conserva_valores_escalares(self):
+        relativo = self.normalizar_codigo("def f():\n    from .paquete import dato\n")
+        superior = self.normalizar_codigo("def f():\n    from ..paquete import dato\n")
+
+        self.assertIn("VALOR:1", serializar_ast(relativo))
+        self.assertIn("VALOR:2", serializar_ast(superior))
+        self.assertNotEqual(serializar_ast(relativo), serializar_ast(superior))
 
     def test_parametros_antes_de_anotaciones_y_defaults(self):
         nodo = self.normalizar_codigo(

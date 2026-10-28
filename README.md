@@ -15,12 +15,14 @@ para que cada integrante pueda explicar y modificar cualquier módulo.
 
 ## Estado actual
 
-Etapas 0, 1 y 2 completadas: decisiones documentadas, extractor y normalización
-implementados, con 27 pruebas automatizadas aprobadas. El extractor devuelve
-funciones con sus metadatos y AST; el normalizador transforma una copia del árbol.
+Etapas 0 a 4 implementadas: decisiones documentadas, extractor,
+normalización, serialización y similitud. El extractor devuelve funciones con
+sus metadatos y AST; el normalizador transforma una copia, el serializador
+produce tokens y la métrica calcula Jaccard sobre trigramas.
 
-Serialización, similitud y CLI siguen pendientes. La próxima etapa es la
-serialización, que se iniciará únicamente cuando el equipo lo indique.
+La CLI sigue pendiente y se iniciará únicamente cuando el equipo lo indique.
+La suite completa aún
+debe volver a verificarse en Python 3.13; ver el resultado actual en Pruebas.
 
 ## Documentación compartida
 
@@ -98,6 +100,47 @@ llamadas. No se garantiza detectar todos sus renombrados, ni los de variables
 con sombreado. El árbol normalizado sirve para comparar; no se ejecuta ni se
 promete que preserve el comportamiento original.
 
+### Serialización disponible
+
+Después de normalizar una función:
+
+```python
+from normalizador import serializar_ast
+
+tokens = serializar_ast(normalizado)
+print(tokens)
+```
+
+El recorrido recursivo en pre-order emite primero el tipo de nodo y después sus
+campos e hijos en el orden de `ast.iter_fields()`. Usa `NODO:tipo`, `CAMPO:nombre`,
+`VALOR:representacion`, `AUSENTE`, `INICIO_LISTA`, `FIN_LISTA` y `FIN_NODO`.
+Estos límites permiten distinguir bloques, listas vacías y campos sin valor.
+Los valores usan `repr()` para distinguir, por ejemplo, el número `1` del texto
+`'1'`. No se incluyen posiciones ni comentarios de tipo, ni se modifica el AST.
+La función recibe un árbol ya normalizado; no realiza la normalización por sí sola.
+
+### Similitud disponible
+
+```python
+from similitud import calcular_similitud, UMBRAL_SIMILITUD
+
+score = calcular_similitud(tokens_a, tokens_b)
+print(score)
+print(score >= UMBRAL_SIMILITUD)
+```
+
+`tokens_a` y `tokens_b` son las listas de dos funciones ya normalizadas y
+serializadas. La métrica divide la cantidad de trigramas compartidos por la
+cantidad de trigramas distintos entre ambas. Dos secuencias vacías puntúan 1;
+solo una vacía puntúa 0. Una secuencia no vacía menor a tres tokens forma un
+único n-grama. `crear_ngramas(tokens, n=3)` también está disponible por separado.
+
+Se mantienen n = 3 y umbral = 0.70 después de comprobar dos pares positivos
+y dos negativos en `ejemplos/funciones.py`. La calibración y sus scores están
+en el plan. Los conjuntos pierden frecuencias y parte del orden: el ejemplo de
+instrucciones reordenadas puntúa 1 aunque sus tokens difieren. Un score de 1
+no demuestra igualdad de árboles ni equivalencia de comportamiento.
+
 ### CLI prevista
 
 Cuando esté completada la etapa 5, desde la raíz del proyecto:
@@ -118,10 +161,17 @@ Las pruebas se ejecutan desde la raíz con:
 python -m unittest discover -s tests -v
 ```
 
-Actualmente hay 27 pruebas: 11 del extractor y 16 de normalización. Las primeras
+Actualmente hay 43 pruebas: 11 del extractor, 21 de normalización/serialización
+y 11 de similitud/calibración. Las primeras
 usan carpetas temporales y simulan el error de lectura para no depender de
 permisos del sistema operativo. Las de normalización usan árboles en memoria y
 comprueban equivalencias, diferencias relevantes y conservación de los originales.
+
+Verificación del 28/10/2026 con `python -B -m unittest discover -s tests -v`:
+42 aprobadas y 1 error en Python 3.12.14. Las 11 pruebas nuevas de similitud y
+calibración pasan. El error corresponde
+a una prueba existente que usa parámetros de tipo con defaults de Python 3.13.
+No se verificó nuevamente la suite completa con la versión de referencia.
 
 ## Límites del alcance
 
