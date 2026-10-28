@@ -234,7 +234,7 @@ explica el funcionamiento al equipo antes de avanzar.
   justificación de n y umbral en este documento antes del informe final.
   Cierre: casos obligatorios aprobados, valores justificados y limitaciones conocidas.
 
-- [ ] **Etapa 5. Buscador y CLI** — esfuerzo medio.
+- [x] **Etapa 5. Buscador y CLI** — esfuerzo medio.
   Crear `buscar_similares.py` y `tests/test_buscador.py`.
   Cierre: búsqueda por archivo/nombre/línea, top-K, exclusión del objetivo, empates,
   etiquetas por umbral y errores básicos verificados; primer ejemplo ejecutable
@@ -307,8 +307,25 @@ test_similitud.py -v`. La suite completa ejecutada con Python 3.12.14 tiene
 Python 3.13. Sigue pendiente repetir la suite con la versión de referencia.
 Los scores medidos y la justificación de n y umbral están en la sección 2.
 
-La próxima implementación corresponde exclusivamente a la etapa 5 y requiere
-indicación del equipo. No se realizaron commits ni publicaciones en estas etapas.
+Etapa 5 completada el 28/10/2026. Se creó `buscar_similares.py` con `buscar()`
+y `main()` separadas para permitir pruebas independientes de la CLI. Se creó
+`tests/test_buscador.py` con 10 pruebas: 2 positivos obligatorios (clones
+aritmético y con control de flujo), 2 negativos obligatorios (aritmética vs.
+bucle y retorno simple vs. acumulador), exclusión del objetivo, top-K, nombre
+ambiguó, sin candidatos y directorio inválido. Las 10 pruebas aprobaron.
+
+Ejemplo ejecutable verificado desde la raíz del proyecto:
+  python buscar_similares.py --dir ./ejemplos --funcion funciones.py:sumar --top 5
+
+Salida obtenida:
+  1. funciones.py:total (línea 15) — score: 1.0000 [CANDIDATO A DUPLICADO]
+  2. funciones.py:operaciones (línea 40) — score: 0.7030 [CANDIDATO A DUPLICADO]
+  3. funciones.py:operaciones_reordenadas (línea 46) — score: 0.7030 [CANDIDATO A DUPLICADO]
+  4. funciones.py:identidad (línea 36) — score: 0.5854
+  5. funciones.py:acumular (línea 20) — score: 0.5620
+
+La próxima implementación corresponde exclusivamente a la etapa 6 y requiere
+indicación del equipo. No se realizaron commits ni publicaciones.
 
 Todo cambio posterior de una regla debe indicar motivo, prueba que lo sustenta
 y fecha. Los únicos valores a calibrar son n y umbral; el resto constituye la
