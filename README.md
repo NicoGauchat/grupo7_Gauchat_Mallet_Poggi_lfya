@@ -15,14 +15,15 @@ para que cada integrante pueda explicar y modificar cualquier módulo.
 
 ## Estado actual
 
-Etapas 0 a 4 implementadas: decisiones documentadas, extractor,
-normalización, serialización y similitud. El extractor devuelve funciones con
+Etapas 0 a 6 completadas: decisiones documentadas, extractor,
+normalización, serialización, similitud y buscador por consola. El extractor devuelve funciones con
 sus metadatos y AST; el normalizador transforma una copia, el serializador
 produce tokens y la métrica calcula Jaccard sobre trigramas.
 
-La CLI sigue pendiente y se iniciará únicamente cuando el equipo lo indique.
-La suite completa aún
-debe volver a verificarse en Python 3.13; ver el resultado actual en Pruebas.
+La integración se revisó con pruebas de la consola en procesos reales y se
+corrigieron los casos encontrados. Las 64 pruebas pasan en Python 3.13.15.
+Hay un borrador del informe en `output/pdf/informe.pdf`, pendiente de revisión
+del equipo. La preparación de la defensa y el cierre de la entrega siguen pendientes.
 
 ## Documentación compartida
 
@@ -44,7 +45,7 @@ evitar mantener versiones distintas en varios documentos.
 | `buscar_similares.py` | Resolver argumentos, coordinar la búsqueda y mostrar resultados |
 | `tests/` | Pruebas unitarias y de integración con `unittest` |
 | `ejemplos/` | Casos pequeños para comprobar y defender el programa |
-| `informe.pdf` | Informe final de hasta dos páginas |
+| `output/pdf/informe.pdf` | Borrador del informe de hasta dos páginas |
 
 Estos archivos se incorporarán cuando corresponda su etapa, sin crear módulos vacíos.
 
@@ -141,17 +142,29 @@ en el plan. Los conjuntos pierden frecuencias y parte del orden: el ejemplo de
 instrucciones reordenadas puntúa 1 aunque sus tokens difieren. Un score de 1
 no demuestra igualdad de árboles ni equivalencia de comportamiento.
 
-### CLI prevista
+### Buscador por consola
 
-Cuando esté completada la etapa 5, desde la raíz del proyecto:
+Desde la raíz del proyecto:
 
 ```bash
-python buscar_similares.py --dir ./ejemplos --funcion archivo1.py:sumar --top 5
+python -B buscar_similares.py --dir ./ejemplos --funcion funciones.py:sumar --top 5
 ```
 
-El archivo objetivo será relativo a `--dir`. Si el nombre se repite dentro del
-archivo, se podrá agregar `--linea NUMERO`. Se mostrarán archivo, nombre, línea,
-score y la indicación de candidato a duplicado.
+El archivo objetivo debe ser relativo a `--dir`. Si el nombre se repite dentro
+del archivo, agregar `--linea NUMERO`. Se muestran archivo, nombre, línea,
+score con cuatro decimales y la indicación de candidato a duplicado.
+El umbral etiqueta los resultados, sin excluir los de score menor a 0.70.
+`--top` vale 5 por defecto y acepta únicamente enteros positivos.
+
+Las rutas con espacios se escriben entre comillas. Se aceptan los separadores
+de rutas del sistema y se rechazan rutas absolutas o que salgan de la raíz.
+Los archivos inválidos generan avisos por stderr; los errores de entrada
+terminan con código distinto de cero. Una búsqueda válida sin otras funciones
+termina correctamente con un mensaje, sin inventar resultados.
+
+En el ejemplo, `total` aparece primero con score 1.0000. `operaciones` y
+`operaciones_reordenadas` puntúan 0.7030: también se marcan como candidatas.
+La etiqueta indica similitud estructural aproximada, no igualdad de funciones.
 
 ### Pruebas
 
@@ -161,17 +174,30 @@ Las pruebas se ejecutan desde la raíz con:
 python -m unittest discover -s tests -v
 ```
 
-Actualmente hay 43 pruebas: 11 del extractor, 21 de normalización/serialización
-y 11 de similitud/calibración. Las primeras
+Actualmente hay 64 pruebas: 11 del extractor, 21 de normalización/serialización,
+11 de similitud/calibración, 10 del buscador y 11 de integración. Las primeras
 usan carpetas temporales y simulan el error de lectura para no depender de
 permisos del sistema operativo. Las de normalización usan árboles en memoria y
 comprueban equivalencias, diferencias relevantes y conservación de los originales.
 
-Verificación del 28/10/2026 con `python -B -m unittest discover -s tests -v`:
-42 aprobadas y 1 error en Python 3.12.14. Las 11 pruebas nuevas de similitud y
-calibración pasan. El error corresponde
-a una prueba existente que usa parámetros de tipo con defaults de Python 3.13.
-No se verificó nuevamente la suite completa con la versión de referencia.
+Verificación del 29/10/2026 en Python 3.13.15: las 64 pruebas aprobadas, sin
+errores ni omisiones. Se ejecutó el intérprete instalado en
+`C:\Users\nicog\AppData\Local\Programs\Python\Python313\python.exe` con
+`-X utf8 -B -m unittest discover -s tests -v`. En PowerShell:
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\Python\Python313\python.exe" -X utf8 -B -m unittest discover -s tests -v
+```
+
+`-X utf8` fija la codificación de la salida y `-B` evita generar archivos de
+caché. La prueba que fallaba con Python 3.12 por sintaxis de parámetros de tipo
+con defaults pasa con la versión de referencia, sin modificarla.
+
+La integración cubre subcarpetas, rutas con espacios, separadores de Windows,
+empates, top-K mayor a los candidatos e inválido, nombres ambiguos y selección
+por línea, carpeta vacía, objetivo ausente, ausencia de otros candidatos y
+mezcla de archivos válidos e inválidos. También comprueba que el código
+analizado no se ejecute y que los avisos no se pierdan al fallar la selección.
 
 ## Límites del alcance
 

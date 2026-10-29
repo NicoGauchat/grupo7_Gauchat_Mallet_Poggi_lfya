@@ -197,7 +197,9 @@ configuraciones de consola ni dependencias.
 
 ## 4. Etapas y condiciones de cierre
 
-La implementación pendiente empieza en la etapa 5. El esfuerzo relativo es una
+Las etapas 0 a 6 están completadas. La suite completa pasa en Python 3.13.15.
+El trabajo pendiente corresponde a la etapa 7: entrega y defensa.
+El esfuerzo relativo es una
 orientación; la normalización concentra la mayor incertidumbre. No es una agenda
 ni un compromiso de horas. Al cerrar cada etapa se actualiza esta lista y se
 explica el funcionamiento al equipo antes de avanzar.
@@ -240,12 +242,14 @@ explica el funcionamiento al equipo antes de avanzar.
   etiquetas por umbral y errores básicos verificados; primer ejemplo ejecutable
   documentado con sus nombres de archivo reales.
 
-- [ ] **Etapa 6. Integración y revisión** — esfuerzo medio.
+- [x] **Etapa 6. Integración y revisión** — esfuerzo medio.
   Ejecutar la suite completa y la CLI sobre ejemplos y otra carpeta pequeña.
   Probar mezcla de archivos válidos/inválidos, ausencia y ambigüedad del objetivo,
   K inválido o mayor que los candidatos, sin candidatos y rutas con espacios.
   Cierre: flujo completo verificado contra todos los requisitos de la consigna;
   corregir errores sin añadir características ni optimizaciones innecesarias.
+  Revisión y cierre realizados el 29/10/2026: 64 pruebas aprobadas en
+  Python 3.13.15, incluidas las 11 de integración; correcciones verificadas.
 
 - [ ] **Etapa 7. Entrega y defensa** — esfuerzo medio.
   Completar README e `informe.pdf` de hasta dos páginas: decisiones, métrica y su
@@ -324,9 +328,49 @@ Salida obtenida:
   4. funciones.py:identidad (línea 36) — score: 0.5854
   5. funciones.py:acumular (línea 20) — score: 0.5620
 
-La próxima implementación corresponde exclusivamente a la etapa 6 y requiere
-indicación del equipo. No se realizaron commits ni publicaciones.
+Revisión de la etapa 6 realizada el 29/10/2026 por indicación del equipo.
+Se agregó `tests/test_integracion.py`, que ejecuta la CLI con el intérprete
+actual en procesos reales, desde una carpeta temporal diferente al repositorio.
+Se verificó el ejemplo de `ejemplos/` y otra carpeta pequeña con subcarpetas,
+rutas con espacios, empates por archivo/línea, K inválido o mayor a la cantidad
+disponible, selección ambigua y por línea, objetivo ausente, carpeta vacía,
+sin otros candidatos y mezcla de sintaxis/codificaciones válidas e inválidas.
+Un archivo de prueba contiene un `raise RuntimeError` al nivel del módulo:
+la búsqueda funciona porque solo lee y parsea el archivo, sin ejecutarlo.
+
+Las pruebas demostraron problemas que se corrigieron en `buscar_similares.py`:
+
+- Normalizar con `Path` la ruta objetivo a una ruta relativa con `/` para
+  admitir separadores de Windows. Rechazar explícitamente rutas absolutas o
+  resueltas fuera de la raíz, de acuerdo con el contrato existente.
+- Validar top-K también en `buscar()`, evitando recortes silenciosos con 0 o -1.
+- Distinguir una carpeta sin funciones con un mensaje específico.
+- Conservar los avisos de archivos omitidos cuando falla la selección del
+  objetivo. Un auxiliar local construye el `ValueError` con esos avisos para
+  que `main()` los muestre por stderr, sin repetir la extracción.
+
+Se ejecutó `python -X utf8 -B -m unittest discover -s tests -v`: 64 pruebas,
+63 aprobadas y 1 error existente por sintaxis de Python 3.13, usando Python
+3.12.14. Las 11 pruebas de integración y las 10 del buscador pasaron. También
+se ejecutó `python -X utf8 -B buscar_similares.py --dir ./ejemplos --funcion
+funciones.py:sumar --top 5`, con el mismo ranking documentado en la etapa 5.
+Se actualizó el README para reflejar la CLI disponible y los resultados reales.
+
+Al comenzar no se encontró un intérprete Python 3.13 disponible en las
+ubicaciones revisadas. Posteriormente, con autorización del equipo, se instaló
+Python 3.13.15 para el usuario mediante el paquete `Python.Python.3.13` de
+winget, cuyo instalador proviene de python.org. Se ejecutó
+`C:\Users\nicog\AppData\Local\Programs\Python\Python313\python.exe` con
+`-X utf8 -B -m unittest discover -s tests -v`: las 64 pruebas pasaron en
+21.604 segundos, sin errores ni omisiones. No se modificó la prueba que
+requiere 3.13. Se cierra la etapa 6. La etapa 7 continúa abierta.
+No se realizaron commits ni publicaciones durante esta revisión.
 
 Todo cambio posterior de una regla debe indicar motivo, prueba que lo sustenta
 y fecha. Los únicos valores a calibrar son n y umbral; el resto constituye la
 base acordada, salvo que se encuentre una contradicción con la consigna o un error.
+
+Borrador del informe preparado el 29/10/2026 en `output/pdf/informe.pdf`.
+Tiene dos páginas A4 e incluye decisiones, métrica, scores de los casos fijados,
+limitaciones y mejoras futuras. La etapa 7 no se cierra: queda pendiente la
+revisión del equipo, la preparación de la defensa y completar la entrega.

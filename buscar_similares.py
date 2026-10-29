@@ -2,6 +2,7 @@
 
 import argparse  # módulo para parsear argumentos desde terminal
 import sys #de aca usamos sys.stderr para imprimir erroes y sys.exit() para terminar cdo hay error
+from pathlib import Path
 from extractor import extraer_funciones
 from normalizador import normalizar_funcion, serializar_ast
 from similitud import calcular_similitud, UMBRAL_SIMILITUD
@@ -15,19 +16,39 @@ def buscar(directorio, archivo_objetivo, nombre_objetivo, linea_objetivo, top_k)
     Lanza ValueError si el directorio es inválido, si el objetivo no se
     encuentra o si hay ambigüedad sin que se haya indicado una línea.
     """
+    if top_k < 1:
+        raise ValueError("La cantidad de resultados debe ser un entero positivo.")
+    directorio = Path(directorio).resolve()
+    archivo = Path(archivo_objetivo)
+    mensaje_ruta = "El archivo objetivo debe ser una ruta relativa dentro del directorio."
+    if archivo.is_absolute() or archivo.drive or archivo.root:
+        raise ValueError(mensaje_ruta)
+    try:
+        archivo_objetivo = (directorio / archivo).resolve().relative_to(directorio).as_posix()
+    except ValueError:
+        raise ValueError(mensaje_ruta) from None
+
     funciones, errores = extraer_funciones(directorio)
+
+    def error_de_seleccion(mensaje):
+        # Conservar los avisos aunque no se pueda elegir una función objetivo.
+        avisos = [f"Aviso: {error}" for error in errores]
+        return ValueError("\n".join([mensaje] + avisos))
+
+    if not funciones:
+        raise error_de_seleccion("No se encontraron funciones en el directorio indicado.")
     # Buscar la función objetivo dentro de las extraídas.
     candidatos_objetivo = [
         f for f in funciones
         if f["archivo"] == archivo_objetivo and f["nombre"] == nombre_objetivo
     ]
     if not candidatos_objetivo:
-        raise ValueError(
+        raise error_de_seleccion(
             f"No se encontró '{nombre_objetivo}' en '{archivo_objetivo}'."
         )
     if len(candidatos_objetivo) > 1 and linea_objetivo is None:
         lineas = [str(f["linea"]) for f in candidatos_objetivo]
-        raise ValueError(
+        raise error_de_seleccion(
             f"El nombre '{nombre_objetivo}' aparece en más de una línea "
             f"de '{archivo_objetivo}': {', '.join(lineas)}. "
             f"Usá --linea para indicar cuál."
@@ -37,7 +58,7 @@ def buscar(directorio, archivo_objetivo, nombre_objetivo, linea_objetivo, top_k)
             f for f in candidatos_objetivo if f["linea"] == linea_objetivo
         ]
         if not candidatos_objetivo:
-            raise ValueError(
+            raise error_de_seleccion(
                 f"No se encontró '{nombre_objetivo}' en línea {linea_objetivo} "
                 f"de '{archivo_objetivo}'."
             )
