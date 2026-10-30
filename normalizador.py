@@ -1,25 +1,17 @@
-"""Normalización y serialización de AST de funciones para comparar su estructura."""
-
 import ast
 import copy
 
 
 def normalizar_funcion(nodo):
-    """Devuelve una copia normalizada de un FunctionDef sin alterar el original.
 
-    Usa un mapa de nombres por función, sin resolver ámbitos semánticos.
-    El resultado es una representación para comparar, no para ejecutar.
-    """
+
     copia = copy.deepcopy(nodo)
     return _Normalizador(copia).visit(copia)
 
 
 def serializar_ast(nodo_normalizado):
-    """Devuelve tokens en pre-order sin modificar el árbol normalizado.
 
-    Los marcadores conservan los campos y los límites de nodos y listas.
-    Las posiciones y los comentarios de tipo no participan en la comparación.
-    """
+
     tokens = []
 
     def recorrer(elemento):
@@ -67,7 +59,7 @@ class _Normalizador(ast.NodeTransformer):
             nodo.name = "FUNCION"
         else:
             nodo.name = self._normalizar_nombre(nodo.name)
-        # Detectar el docstring antes de reemplazar sus constantes por LIT.
+
         if ast.get_docstring(nodo, clean=False) is not None:
             nodo.body.pop(0)
         return self.generic_visit(nodo)
@@ -83,7 +75,7 @@ class _Normalizador(ast.NodeTransformer):
         if nodo.kwarg is not None:
             parametros.append(nodo.kwarg)
 
-        # Registrar todos primero: anotaciones y defaults pueden contener nombres.
+
         for parametro in parametros:
             self._normalizar_nombre(parametro.arg)
         return self.generic_visit(nodo)
@@ -110,7 +102,7 @@ class _Normalizador(ast.NodeTransformer):
         return self.generic_visit(nodo)
 
     def visit_ExceptHandler(self, nodo):
-        # El tipo aparece antes del nombre capturado en los campos del AST.
+
         if nodo.type is not None:
             nodo.type = self.visit(nodo.type)
         nodo.name = self._normalizar_nombre(nodo.name)

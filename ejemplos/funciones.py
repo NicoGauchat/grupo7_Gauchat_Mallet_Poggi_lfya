@@ -1,12 +1,3 @@
-"""Casos de calibración: se leen y parsean, sin importarlos ni ejecutarlos.
-
-Positivos: sumar/total y acumular/contar.
-Negativos: sumar/contar e identidad/acumular.
-Exploratorio: operaciones/operaciones_reordenadas.
-Las expectativas se fijan por la estructura antes de medir los scores.
-"""
-
-
 def sumar(a, b):
     resultado = a + b
     return resultado
