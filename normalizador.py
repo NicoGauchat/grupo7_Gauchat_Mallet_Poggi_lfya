@@ -40,6 +40,7 @@ def serializar_ast(nodo_normalizado):
 class _Normalizador(ast.NodeTransformer):
     def __init__(self, raiz):
         self.raiz = raiz
+        self.nombre_original = raiz.name
         self.nombres = {}
 
     def _normalizar_nombre(self, nombre):
@@ -86,6 +87,13 @@ class _Normalizador(ast.NodeTransformer):
 
     def visit_Name(self, nodo):
         nodo.id = self._normalizar_nombre(nodo.id)
+        return self.generic_visit(nodo)
+
+    def visit_Attribute(self, nodo):
+        if (isinstance(nodo.value, ast.Name)
+                and nodo.value.id in ("self", "cls")
+                and nodo.attr == self.nombre_original):
+            nodo.attr = "FUNCION"
         return self.generic_visit(nodo)
 
     def visit_Constant(self, nodo):
